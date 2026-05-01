@@ -2,6 +2,7 @@ const express = require("express");
 const app = express();
 
 app.use(express.json());
+const VALID_STATUSES = ["To Do", "In Progress", "Completed"];
 
 let tasks = [
   {
@@ -15,7 +16,7 @@ let tasks = [
     id: 2,
     title: "Networking Exercise",
     description: "For Exam",
-    status: "In progress",
+    status: "In Progress",
     createdAt: new Date().toISOString(),
   },
   {
@@ -40,10 +41,61 @@ app.get("/", (req, res) => {
 });
 
 app.get("/api/tasks", (req, res) => {
-  req.status(200).json({
+  const { status, search, sort } = req.query;
+
+  if (status !== undefined) {
+    const isValidStatus = VALID_STATUSES.some(
+      (s) => s.toLowerCase() === status.toLowerCase(),
+    );
+    if (!isValidStatus) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid status filter. Allowed values are: ${VALID_STATUSES.join(", ")}.`,
+      });
+    }
+  }
+  if (sort !== undefined && !["asc", "desc"].includes(sort.toLowerCase())) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid sort value. Use 'asc' or 'desc'.",
+    });
+  }
+
+  let result = [...tasks];
+  if (status) {
+    result = result.filter(
+      (task) => task.status.toLowerCase() === status.toLowerCase(),
+    );
+  }
+  if (search) {
+    const searchTerm = search.toLowerCase().trim();
+
+    result = result.filter((task) => {
+      const inTitle = task.title.toLowerCase().includes(searchTerm);
+      const inDescription = task.description.toLowerCase().includes(searchTerm);
+      return inTitle || inDescription;
+    });
+  }
+  if (sort) {
+    result.sort((a, b) => {
+      const dateA = new Date(a.createdAt);
+      const dateB = new Date(b.createdAt);
+
+      return sort.toLowerCase() === "asc" ? dateA - dateB : dateB - dateA;
+    });
+  }
+  const appliedFilters = {
+    ...(status && { status }),
+    ...(search && { search }),
+    ...(sort && { sort }),
+  };
+
+  res.status(200).json({
     success: true,
-    count: tasks.length,
-    data: tasks,
+    totalTasks: tasks.length,
+    count: result.length,
+    appliedFilters: appliedFilters,
+    data: result,
   });
 });
 
@@ -72,7 +124,6 @@ app.get("/api/tasks/:id", (req, res) => {
   });
 });
 
-const VALID_STATUSES = ["To Do", "In Progress", "Completed"];
 
 app.post("/api/tasks", (req, res) => {
   const { title, description, status } = req.body;
@@ -128,7 +179,7 @@ app.put("/api/tasks/:id", (req, res) => {
 
   const taskIndex = tasks.findIndex((t) => t.id === taskId);
 
-  if (taskId === -1) {
+  if (taskIndex === -1) {
     return res.status(404).json({
       success: false,
       message: `Task with ID ${taskId} was not found.`,
@@ -214,6 +265,6 @@ app.delete("/api/tasks/:id", (req, res) => {
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log("server is running on http://localhost:${PORT}");
+  console.log(`Server is running on http://localhost:${PORT}`);
   console.log("Press clt c to stop");
 });
