@@ -72,6 +72,50 @@ app.get("/api/tasks/:id", (req, res) => {
   });
 });
 
+const VALID_STATUSES = ["To Do", "In Progress", "Completed"];
+
+app.post("/api/tasks", (req, res) => {
+  const { title, description, status } = req.body;
+  const errors = [];
+  
+  if (!title || typeof title !== "string" || title.trim() === "") {
+    errors.push("Title is required and must be a non-empty string.");
+  }
+
+  if (status !== undefined && !VALID_STATUSES.includes(status)) {
+    errors.push(
+      `Invalid status. Allowed values are: ${VALID_STATUSES.join(", ")}.`,
+    );
+  }
+
+  if (description !== undefined && typeof description !== "string") {
+    errors.push("Description must be a string.");
+  }
+
+  if (errors.length > 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Validation failed.",
+      errors: errors,
+    });
+  }
+  const newTask = {
+    id: nextId++,
+    title: title.trim(),
+    description: description ? description.trim() : "",
+    status: status || "To Do",
+    createdAt: new Date().toISOString(),
+  };
+
+  tasks.push(newTask);
+
+  res.status(201).json({
+    success: true,
+    message: "Task created successfully.",
+    data: newTask,
+  });
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
