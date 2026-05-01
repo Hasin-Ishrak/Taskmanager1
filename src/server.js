@@ -77,7 +77,7 @@ const VALID_STATUSES = ["To Do", "In Progress", "Completed"];
 app.post("/api/tasks", (req, res) => {
   const { title, description, status } = req.body;
   const errors = [];
-  
+
   if (!title || typeof title !== "string" || title.trim() === "") {
     errors.push("Title is required and must be a non-empty string.");
   }
@@ -113,6 +113,101 @@ app.post("/api/tasks", (req, res) => {
     success: true,
     message: "Task created successfully.",
     data: newTask,
+  });
+});
+
+app.put("/api/tasks/:id", (req, res) => {
+  const taskId = parseInt(req.params.id);
+
+  if (isNaN(taskId)) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid ID format. ID must be a number.",
+    });
+  }
+
+  const taskIndex = tasks.findIndex((t) => t.id === taskId);
+
+  if (taskId === -1) {
+    return res.status(404).json({
+      success: false,
+      message: `Task with ID ${taskId} was not found.`,
+    });
+  }
+
+  const { title, description, status } = req.body;
+  const errors = [];
+  if (title !== undefined) {
+    if (typeof title !== "string" || title.trim() === "") {
+      errors.push("Title must be a non-empty string.");
+    }
+  }
+  if (status !== undefined && !VALID_STATUSES.includes(status)) {
+    errors.push(
+      `Invalid status. Allowed values are: ${VALID_STATUSES.join(", ")}.`,
+    );
+  }
+  if (description !== undefined && typeof description !== "string") {
+    errors.push("Description must be a string.");
+  }
+  if (errors.length > 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Validation failed.",
+      errors: errors,
+    });
+  }
+  if (
+    title === undefined &&
+    description === undefined &&
+    status === undefined
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: "No update fields provided.",
+    });
+  }
+  const existingTask = tasks[taskIndex];
+
+  const updatedTask = {
+    ...existingTask,
+    ...(title !== undefined && { title: title.trim() }),
+    ...(description !== undefined && { description: description.trim() }),
+    ...(status !== undefined && { status }),
+    updatedAt: new Date().toISOString(),
+  };
+  tasks[taskIndex] = updatedTask;
+
+  res.status(200).json({
+    success: true,
+    message: "Task updated successfully.",
+    data: updatedTask,
+  });
+});
+
+app.delete("/api/tasks/:id", (req, res) => {
+  const taskId = parseInt(req.params.id);
+  if (isNaN(taskId)) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid ID format. ID must be a number.",
+    });
+  }
+  const taskIndex = tasks.findIndex((t) => t.id === taskId);
+  if (taskIndex === -1) {
+    return res.status(404).json({
+      success: false,
+      message: `Task with ID ${taskId} was not found.`,
+    });
+  }
+  const deletedTask = tasks[taskIndex];
+
+  tasks.splice(taskIndex, 1);
+
+  res.status(200).json({
+    success: true,
+    message: `Task with ID ${taskId} deleted successfully.`,
+    data: deletedTask,
   });
 });
 
